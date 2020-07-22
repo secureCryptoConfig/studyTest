@@ -182,18 +182,12 @@ public class Server extends Thread {
 
 			p(theMessage.getMessageType().toString());
 
-			// if validation was correct: orders for buying/selling stock get encrypted and
-			// stored
-			if (type != MessageType.GetOrders) {
-				if (isCorrectMessage == true) {
+			if (isCorrectMessage == true) {
+				if (type != MessageType.GetOrders) {
 					SCCCiphertext cipher = encryptOrder(signedMessage.getContent().getBytes());
 					queues.get(clientId).add(cipher);
-					return Message.createServerResponsekMessage(isCorrectMessage);
+					return Message.createServerResponseMessage(isCorrectMessage);
 				} else {
-					return Message.createServerResponsekMessage(isCorrectMessage);
-				}
-			} else {
-				if (isCorrectMessage == true) {
 					CircularFifoQueue<SCCCiphertext> q = queues.get(clientId);
 					String answer = "";
 					for (int i = 0; i < q.size(); i++) {
@@ -201,14 +195,12 @@ public class Server extends Thread {
 						String decrypted = "";
 						decrypted = decryptOrder(cipher);
 						answer = answer + Message.createServerSendOrdersMessage(decrypted) + "\n";
-
 					}
 					return answer;
-				} else {
-					return new String("{\"Failure\"}");
 				}
+			} else {
+				return Message.createServerResponseMessage(isCorrectMessage);
 			}
-
 		} catch (JsonProcessingException | CoseException e) {
 			return new String("{\"Failure\"}");
 		}

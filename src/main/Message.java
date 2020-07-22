@@ -100,7 +100,7 @@ public class Message {
 		return createMessage(SenderType.Client, MessageType.SellStock, messageParameters);
 	}
 
-	public static String createServerResponsekMessage(boolean result) throws JsonProcessingException {
+	public static String createServerResponseMessage(boolean result) throws JsonProcessingException {
 		HashMap<String, String> messageParameters = new HashMap<String, String>();
 
 		messageParameters.put("result", String.valueOf(result));
