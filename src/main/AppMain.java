@@ -22,7 +22,7 @@ public class AppMain {
 	private static int maxClients = 5;
 
 	public static void main(String[] args) {
-		Path p = Paths.get("scc-configs\\");
+		Path p = Paths.get("scc-configs");
 		SecureCryptoConfig.setCustomSCCPath(p);
 
 		Server.masterKey = Server.generateKey();
