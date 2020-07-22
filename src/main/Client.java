@@ -3,6 +3,7 @@ package main;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.Random;
 
 import org.securecryptoconfig.SCCException;
 import org.securecryptoconfig.SCCKey;
@@ -126,39 +127,15 @@ public class Client implements Runnable {
 	 * @throws JsonProcessingException
 	 */
 	private static String generateOrder() throws NumberFormatException, JsonProcessingException {
-		int random = (int) (100 * Math.random());
-		if (random <= 50) {
+		int random = new Random().nextInt(3);
+		if (random == 0) {
 			return Message.createBuyStockMessage(generateRandomString(12), generateRandomNumber(3));
-		} else {
+		} else if (random == 1){
 			return Message.createSellStockMessage(generateRandomString(12), generateRandomNumber(10));
-		}
-
-	}
-	
-	/**
-	 * Create a message which can be send to server to request already send orders of the client
-	 * @return String - message send to server
-	 * @throws JsonProcessingException
-	 */
-	private static String generateGetOrders() throws JsonProcessingException {
+		}else
+		{
 			return Message.createGetOrdersMessage();
-	}
-
-	/** 
-	 * Sending of signed message for retrieving already send orders of the client to server.
-	 * Server sends a response with all previously send orders back to the client.
-	 * Message is accepted if signature can be validated.
-	 * @throws CoseException
-	 * @throws JsonProcessingException
-	 */
-	private void sendGetOrder(String order) throws CoseException, JsonProcessingException {
-		SCCKey pair = this.key;
-
-		String signedMessage = SignedMessage.createSignedMessage(this.clientID, order, sign(order, pair));
-
-		p("sending to server: " + signedMessage);
-		String result = server.retrieveOrders(signedMessage);
-		p("result from server: " + result);
+		}
 
 	}
 
@@ -232,8 +209,6 @@ public class Client implements Runnable {
 				Thread.sleep((long)(Math.random() * timeoutClient + 1));
 				sendOrder(generateOrder());
 				Thread.sleep((long)(Math.random() * timeoutClient + 1));
-				sendGetOrder(generateGetOrders());
-
 			} catch (InterruptedException | CoseException e) {
 				 e.printStackTrace();
 			} catch (NumberFormatException e) {

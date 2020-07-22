@@ -27,7 +27,7 @@ public class AppMain {
 	protected static HashSet<Client> clients = new HashSet<Client>();
 
 	//client number that is simulated for server interaction
-	private static int maxClients = 5;
+	private static int maxClients = 1;
 
 	public static void main(String[] args) {
 		Path p = Paths.get("scc-configs");

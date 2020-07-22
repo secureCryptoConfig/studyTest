@@ -24,28 +24,32 @@ import COSE.CoseException;
 import main.Message.MessageType;
 
 /**
- * Class that simulates the behavior of a stock-server that processes client requests.
+ * Class that simulates the behavior of a stock-server that processes client
+ * requests.
  * 
- * Server retrieves buy/sell orders for stock from clients. Clients can be registered
- * from the server with their public key. This public key is needed to be able to check
- * the validity of all following signed messages that the client sends.
- * The validity of signed messages will be checked and valid incoming orders will be stored encrypted
- * such that no unauthorized party can see unencrypted order.
+ * Server retrieves buy/sell orders for stock from clients. Clients can be
+ * registered from the server with their public key. This public key is needed
+ * to be able to check the validity of all following signed messages that the
+ * client sends. The validity of signed messages will be checked and valid
+ * incoming orders will be stored encrypted such that no unauthorized party can
+ * see unencrypted order.
  */
 public class Server extends Thread {
-	//Queue to store orders of a client with a specific ID
+	// Queue to store orders of a client with a specific ID
 	HashedMap<Integer, CircularFifoQueue<SCCCiphertext>> queues = new HashedMap<Integer, CircularFifoQueue<SCCCiphertext>>();
-	//maximum timeout of server used in "run" Method
+	// maximum timeout of server used in "run" Method
 	private static int timeoutServer = 5000;
-	
-	//Key for encrypt orders before storing. Gets initialized with the first run of AppMain.java
+
+	// Key for encrypt orders before storing. Gets initialized with the first run of
+	// AppMain.java
 	static SCCKey masterKey;
-	
-	//all registered clients with their Keys
+
+	// all registered clients with their Keys
 	List<SCCKey> clients = Collections.synchronizedList(new ArrayList<SCCKey>());
 
 	/**
 	 * Server retrieves key for later signature validation from client
+	 * 
 	 * @param key
 	 * @return int : client ID
 	 */
@@ -56,14 +60,15 @@ public class Server extends Thread {
 		}
 
 		int id = clients.indexOf(key);
-		
-		//new Queue of the client to store his later incoming orders
+
+		// new Queue of the client to store his later incoming orders
 		queues.put(id, new CircularFifoQueue<SCCCiphertext>(100));
 		return id;
 	}
 
 	/**
 	 * Method to check signature validation of a incoming message.
+	 * 
 	 * @param clientID
 	 * @param order
 	 * @param signature
@@ -71,7 +76,8 @@ public class Server extends Thread {
 	 * @return boolean resultValidation: shows if signature was valid
 	 * @throws CoseException
 	 */
-	private boolean checkSignature(int clientID, byte[] order, byte[] signature, MessageType type) throws CoseException {
+	private boolean checkSignature(int clientID, byte[] order, byte[] signature, MessageType type)
+			throws CoseException {
 		// Key of client. This key is used for signature validation
 		SCCKey key = clients.get(clientID);
 
@@ -83,8 +89,9 @@ public class Server extends Thread {
 		SecureCryptoConfig scc = new SecureCryptoConfig();
 		try {
 			resultValidation = scc.validateSignature(key, signature);
-			
-			//if validation was correct orders for buying/selling stock get encrypted and stored
+
+			// if validation was correct orders for buying/selling stock get encrypted and
+			// stored
 			if (resultValidation == true && type != MessageType.GetOrders) {
 				SCCCiphertext cipher = encryptOrder(order);
 				queues.get(clientID).add(cipher);
@@ -100,6 +107,7 @@ public class Server extends Thread {
 
 	/**
 	 * Method for symmetric encrypting incoming order of client
+	 * 
 	 * @param order
 	 * @return SCCCiphertext
 	 * @throws CoseException
@@ -120,7 +128,9 @@ public class Server extends Thread {
 	}
 
 	/**
-	 * Method for decrypting stored encrypted order if clients requests his already send orders
+	 * Method for decrypting stored encrypted order if clients requests his already
+	 * send orders
+	 * 
 	 * @param cipher
 	 * @return String : all previously send orders
 	 * @throws CoseException
@@ -139,6 +149,7 @@ public class Server extends Thread {
 
 	/**
 	 * Generation of key for later encryption of orders
+	 * 
 	 * @return SCCKey
 	 */
 	public static SCCKey generateKey() {
@@ -151,49 +162,17 @@ public class Server extends Thread {
 	}
 
 	/**
-	 * Processes incoming orders. Values of messages are read out and validation process gets started.
-	 * Server sends back a response to client showing if incoming order signature could be validated
+	 * Processes incoming orders. Values of messages are read out and validation
+	 * process gets started. Server sends back a response to client showing if
+	 * incoming order signature could be validated
+	 * 
 	 * @param message
 	 * @return
 	 */
 	public String acceptMessage(String message) {
 
 		boolean isCorrectMessage = false;
-
-		ObjectMapper mapper = new ObjectMapper();
-		try {
-			SignedMessage signedMessage = mapper.readValue(message, SignedMessage.class);
-			int clientId = signedMessage.getClientId();
-
-			byte[] signature = signedMessage.getSignature();
-
-			Message theMessage = mapper.readValue(signedMessage.getContent(), Message.class);
-			MessageType type = theMessage.getMessageType();
-			
-			isCorrectMessage = checkSignature(clientId, signedMessage.getContent().getBytes(), signature, type);
-
-			p(theMessage.getMessageType().toString());
-		} catch (JsonProcessingException | CoseException e) {
-			e.printStackTrace();
-		}
-
-		try {
-			return Message.createServerResponsekMessage(isCorrectMessage);
-		} catch (JsonProcessingException e) {
-			return new String("{\"Failure\"}");
-		}
-	}
-
-	/**
-	 * Processes requests of clients that want to retrieve their already send orders
-	 * Values of message are read out, validation process gets started. If validation
-	 * was successful then server sends back a response with all previously sent orders.
-	 * @param message
-	 * @return String : all previously sent orders
-	 */
-	public String retrieveOrders(String message) {
-
-		boolean isCorrectMessage = false;
+		MessageType type = null;
 		int clientId = 0;
 		ObjectMapper mapper = new ObjectMapper();
 		try {
@@ -203,37 +182,40 @@ public class Server extends Thread {
 			byte[] signature = signedMessage.getSignature();
 
 			Message theMessage = mapper.readValue(signedMessage.getContent(), Message.class);
-			MessageType type = theMessage.getMessageType();
-			
+			type = theMessage.getMessageType();
+
 			isCorrectMessage = checkSignature(clientId, signedMessage.getContent().getBytes(), signature, type);
 
-			p((String) theMessage.getMessageType().toString());
-		} catch (JsonProcessingException | CoseException e) {
-			e.printStackTrace();
-		}
+			p(theMessage.getMessageType().toString());
 
-		if (isCorrectMessage == true) {
-			CircularFifoQueue<SCCCiphertext> q = queues.get(clientId);
-			String answer = "";
-			for (int i = 0; i < q.size(); i++) {
-				SCCCiphertext cipher = q.get(i);
-				String decrypted = "";
-				try {
-					decrypted = decryptOrder(cipher);
-					answer = answer + Message.createServerSendOrdersMessage(decrypted) + "\n";
-				} catch (CoseException | JsonProcessingException e) {
-					e.printStackTrace();
+			if (type != MessageType.GetOrders) {
+				return Message.createServerResponsekMessage(isCorrectMessage);
+			} else {
+				if (isCorrectMessage == true) {
+					CircularFifoQueue<SCCCiphertext> q = queues.get(clientId);
+					String answer = "";
+					for (int i = 0; i < q.size(); i++) {
+						SCCCiphertext cipher = q.get(i);
+						String decrypted = "";
+						decrypted = decryptOrder(cipher);
+						answer = answer + Message.createServerSendOrdersMessage(decrypted) + "\n";
+
+					}
+					return answer;
+				} else {
 					return new String("{\"Failure\"}");
 				}
 			}
-			return answer;
-		} else {
+
+		} catch (JsonProcessingException | CoseException e) {
 			return new String("{\"Failure\"}");
 		}
 	}
 
 	/**
-	 * Auxiliary method for showing some responses/requests in the communication between client and server
+	 * Auxiliary method for showing some responses/requests in the communication
+	 * between client and server
+	 * 
 	 * @param s
 	 */
 	private void p(String s) {
