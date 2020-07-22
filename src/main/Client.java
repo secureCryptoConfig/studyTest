@@ -68,7 +68,7 @@ public class Client implements Runnable {
 	 * @return byte[] : signature
 	 * @throws CoseException
 	 */
-	private static byte[] sign(String order, SCCKey key) throws CoseException {
+	private static byte[] signMessage(String order, SCCKey key) throws CoseException {
 		
 		//TODO: Perform signing of the parameter order with the given SCCKey
 		
@@ -126,7 +126,7 @@ public class Client implements Runnable {
 	 * @throws NumberFormatException
 	 * @throws JsonProcessingException
 	 */
-	private static String generateOrder() throws NumberFormatException, JsonProcessingException {
+	private static String generateRandomMessage() throws NumberFormatException, JsonProcessingException {
 		int random = new Random().nextInt(3);
 		if (random == 0) {
 			return Message.createBuyStockMessage(generateRandomString(12), generateRandomNumber(3));
@@ -145,10 +145,10 @@ public class Client implements Runnable {
 	 * @throws CoseException
 	 * @throws JsonProcessingException
 	 */
-	private void sendOrder(String order) throws CoseException, JsonProcessingException {
+	private void sendMessage(String order) throws CoseException, JsonProcessingException {
 		SCCKey pair = this.key;
 
-		String signedMessage = SignedMessage.createSignedMessage(this.clientID, order, sign(order, pair));
+		String signedMessage = SignedMessage.createSignedMessage(this.clientID, order, signMessage(order, pair));
 
 		p("sending to server: " + signedMessage);
 		String result = server.acceptMessage(signedMessage);
@@ -207,7 +207,7 @@ public class Client implements Runnable {
 		while (true) {
 			try {
 				Thread.sleep((long)(Math.random() * timeoutClient + 1));
-				sendOrder(generateOrder());
+				sendMessage(generateRandomMessage());
 				Thread.sleep((long)(Math.random() * timeoutClient + 1));
 			} catch (InterruptedException | CoseException e) {
 				 e.printStackTrace();

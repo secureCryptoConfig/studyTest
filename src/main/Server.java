@@ -82,23 +82,17 @@ public class Server extends Thread {
 		SCCKey key = clients.get(clientID);
 
 		// result of the validation. Default : false
-		boolean resultValidation;
+		boolean resultValidation = false;
 
 		// TODO Perform validation of the given signature with
 		// the corresponding key of the client. Store the result in 'resultValidation'
 		SecureCryptoConfig scc = new SecureCryptoConfig();
+
 		try {
 			resultValidation = scc.validateSignature(key, signature);
-
-			// if validation was correct orders for buying/selling stock get encrypted and
-			// stored
-			if (resultValidation == true && type != MessageType.GetOrders) {
-				SCCCiphertext cipher = encryptOrder(order);
-				queues.get(clientID).add(cipher);
-			}
 		} catch (InvalidKeyException | SCCException e) {
 			e.printStackTrace();
-			return false;
+			return resultValidation;
 		}
 
 		return resultValidation;
@@ -188,8 +182,16 @@ public class Server extends Thread {
 
 			p(theMessage.getMessageType().toString());
 
+			// if validation was correct: orders for buying/selling stock get encrypted and
+			// stored
 			if (type != MessageType.GetOrders) {
-				return Message.createServerResponsekMessage(isCorrectMessage);
+				if (isCorrectMessage == true) {
+					SCCCiphertext cipher = encryptOrder(signedMessage.getContent().getBytes());
+					queues.get(clientId).add(cipher);
+					return Message.createServerResponsekMessage(isCorrectMessage);
+				} else {
+					return Message.createServerResponsekMessage(isCorrectMessage);
+				}
 			} else {
 				if (isCorrectMessage == true) {
 					CircularFifoQueue<SCCCiphertext> q = queues.get(clientId);
