@@ -15,27 +15,87 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 
 import COSE.CoseException;
 
-
+/**
+ * Class that simulates the behavior of a Client that interacts with a stock-server.
+ * 
+ * Clients can be created automatically and register themselves at the server with their public key.
+ * Orders of different types can be created automatically that will be send signed to the server.
+ * The client has also the possibility to ask for already send orders
+ * @author
+ *
+ */
 public class Client implements Runnable {
-
+	
+	//maximal nu
+	private static int timeoutClient = 5000;
+	
 	int clientID;
 	SCCKey key;
 	Server server;
 
-	private Client(int clientID, SCCKey pair, Server server) {
+	/**
+	 * Constructor of client
+	 * @param clientID
+	 * @param pair : KeyPair
+	 * @param server
+	 */
+	private Client(int clientID, SCCKey key, Server server) {
 		this.clientID = clientID;
-		this.key = pair;
+		this.key = key;
 		this.server = server;
 	}
 
+	/**
+	 * Getter for client ID
+	 * @return int : Id of client
+	 */
 	public int getID() {
 		return this.clientID;
 	}
 
-	private SCCKey getKey() {
+	/**
+	 * Return key of client
+	 * @return SCCKey
+	 */
+	public SCCKey getKey() {
 		return this.key;
 	}
+	
+	/**
+	 * Methods that signs the client order with the corresponding key
+	 * @param order
+	 * @param key
+	 * @return byte[] : signature
+	 * @throws CoseException
+	 */
+	private static byte[] sign(String order, SCCKey key) throws CoseException {
+		
+		//TODO: Perform signing of the parameter order with the given SCCKey
+		
+		SecureCryptoConfig scc = new SecureCryptoConfig();
 
+		SCCSignature sig;
+		try {
+			sig = scc.sign(key, order.getBytes());
+		} catch (InvalidKeyException | SCCException | COSE.CoseException e) {
+			e.printStackTrace();
+			return null;
+		}
+		return sig.toBytes();
+	}
+
+	/**
+	 * Clients are registered with their public key by the server.
+	 * 
+	 * The server needs the client public key for validation of signed messages.
+	 * First a SCCKey for the client is generated which will then be send to the server.
+	 * The server gives back a clientId and a new client will be generated.
+	 * @param server
+	 * @return
+	 * @throws NoSuchAlgorithmException
+	 * @throws CoseException
+	 * @throws IllegalStateException
+	 */
 	public static Client generateNewClient(Server server)
 			throws NoSuchAlgorithmException, CoseException, IllegalStateException {
 
@@ -59,6 +119,13 @@ public class Client implements Runnable {
 		}
 	}
 
+	/**
+	 * Automatically generates a order of a random type (buy or sell stock).
+	 * Order contains an amount of stock to buy/sell from a specific stock
+	 * @return
+	 * @throws NumberFormatException
+	 * @throws JsonProcessingException
+	 */
 	private static String generateOrder() throws NumberFormatException, JsonProcessingException {
 		int random = (int) (100 * Math.random());
 		if (random <= 50) {
@@ -68,21 +135,20 @@ public class Client implements Runnable {
 		}
 
 	}
+	
+	private static String generateGetOrders() throws JsonProcessingException {
+			return Message.createGetOrdersMessage();
+	}
 
-	private static byte[] sign(String order, SCCKey key) throws CoseException {
-		
-		//TODO: Perform signing of the parameter order with the given SCCKey
-		
-		SecureCryptoConfig scc = new SecureCryptoConfig();
+	private void sendGetOrder(String order) throws CoseException, JsonProcessingException {
+		SCCKey pair = this.key;
 
-		SCCSignature sig;
-		try {
-			sig = scc.sign(key, order.getBytes());
-		} catch (InvalidKeyException | SCCException | COSE.CoseException e) {
-			e.printStackTrace();
-			return null;
-		}
-		return sig.toBytes();
+		String signedMessage = SignedMessage.createSignedMessage(this.clientID, order, sign(order, pair));
+
+		p("sending to server: " + signedMessage);
+		String result = server.retrieveOrders(signedMessage);
+		p("result from server: " + result);
+
 	}
 
 	private void sendOrder(String order) throws CoseException, JsonProcessingException {
@@ -130,9 +196,10 @@ public class Client implements Runnable {
 	public void run() {
 		while (true) {
 			try {
-				Thread.sleep(500 + (long) (1000 * Math.random()));
+				Thread.sleep((long)(Math.random() * timeoutClient + 1));
 				sendOrder(generateOrder());
-				Thread.sleep(5000 + (long) (5000 * Math.random()));
+				Thread.sleep((long)(Math.random() * timeoutClient + 1));
+				sendGetOrder(generateGetOrders());
 
 			} catch (InterruptedException | CoseException e) {
 				 e.printStackTrace();

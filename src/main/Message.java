@@ -15,7 +15,7 @@ public class Message {
 	}
 
 	enum MessageType {
-		BuyStock, SellStock, ServerResponse
+		BuyStock, SellStock, ServerResponse, GetOrders, ServerSendOrders
 	}
 
 	private SenderType senderType;
@@ -73,6 +73,18 @@ public class Message {
 		return createMessage(SenderType.Client, MessageType.BuyStock, messageParameters);
 	}
 
+	public static String createServerSendOrdersMessage(String order) throws JsonProcessingException {
+		HashMap<String, String> messageParameters = new HashMap<String, String>();
+		messageParameters.put("order", order);
+		return createMessage(SenderType.Server, MessageType.ServerSendOrders, messageParameters);
+	}
+	
+	public static String createGetOrdersMessage() throws JsonProcessingException {
+		HashMap<String, String> messageParameters = new HashMap<String, String>();
+
+		return createMessage(SenderType.Client, MessageType.GetOrders, messageParameters);
+	}
+	
 	public static String createSellStockMessage(String stockISIN, String amount) throws JsonProcessingException {
 		HashMap<String, String> messageParameters = new HashMap<String, String>();
 
