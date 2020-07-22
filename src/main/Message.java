@@ -7,13 +7,19 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+/**
+ * Class which realizes the message creation. These messages are used for the interaction between
+ * client and server.
+ */
 @JsonAutoDetect(fieldVisibility = Visibility.ANY)
 public class Message {
 
+	// Shows which party sends the message
 	enum SenderType {
 		Server, Client
 	}
 
+	// Shows different kinds of messages that can be used
 	enum MessageType {
 		BuyStock, SellStock, ServerResponse, GetOrders, ServerSendOrders
 	}

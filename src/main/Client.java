@@ -21,12 +21,11 @@ import COSE.CoseException;
  * Clients can be created automatically and register themselves at the server with their public key.
  * Orders of different types can be created automatically that will be send signed to the server.
  * The client has also the possibility to ask for already send orders
- * @author
  *
  */
 public class Client implements Runnable {
 	
-	//maximal nu
+	//maximum timeout of client used in "run" Method
 	private static int timeoutClient = 5000;
 	
 	int clientID;
@@ -136,10 +135,22 @@ public class Client implements Runnable {
 
 	}
 	
+	/**
+	 * Create a message which can be send to server to request already send orders of the client
+	 * @return String - message send to server
+	 * @throws JsonProcessingException
+	 */
 	private static String generateGetOrders() throws JsonProcessingException {
 			return Message.createGetOrdersMessage();
 	}
 
+	/** 
+	 * Sending of signed message for retrieving already send orders of the client to server.
+	 * Server sends a response with all previously send orders back to the client.
+	 * Message is accepted if signature can be validated.
+	 * @throws CoseException
+	 * @throws JsonProcessingException
+	 */
 	private void sendGetOrder(String order) throws CoseException, JsonProcessingException {
 		SCCKey pair = this.key;
 
@@ -151,6 +162,12 @@ public class Client implements Runnable {
 
 	}
 
+	/** 
+	 * Sending of signed message for buying/selling stock to server.
+	 * Server sends a response. Message is accepted if signature can be validated.
+	 * @throws CoseException
+	 * @throws JsonProcessingException
+	 */
 	private void sendOrder(String order) throws CoseException, JsonProcessingException {
 		SCCKey pair = this.key;
 
@@ -162,6 +179,12 @@ public class Client implements Runnable {
 
 	}
 
+	/**
+	 * Auxiliary method for generating a String of a given length.
+	 * Result simulates amount of stock that should be bought.
+	 * @param length
+	 * @return String
+	 */
 	private static String generateRandomNumber(int length) {
 
 		String AlphaNumericString = "01234567890";
@@ -175,6 +198,12 @@ public class Client implements Runnable {
 		return sb.toString();
 	}
 
+	/**
+	 * Auxiliary method for generating a String of a given length.
+	 * Result simulates id of stock that should be bought.
+	 * @param length
+	 * @return String
+	 */
 	private static String generateRandomString(int length) {
 
 		String AlphaNumericString = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -188,6 +217,10 @@ public class Client implements Runnable {
 		return sb.toString();
 	}
 
+	/**
+	 * Auxiliary method for showing some responses/requests in the communication between client and server
+	 * @param s
+	 */
 	private void p(String s) {
 		System.out.println(Instant.now().toString() + " client " + this.clientID + ": " + s);
 	}

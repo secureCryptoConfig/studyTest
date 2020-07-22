@@ -4,7 +4,10 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
+/**
+ * Realizes the format of a message which should contain the order of the client as well as a 
+ * corresponding signature.
+ */
 @JsonAutoDetect(fieldVisibility = Visibility.ANY)
 public class SignedMessage {
 
