@@ -1,25 +1,28 @@
 package main;
 
 import java.security.InvalidKeyException;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
-import java.security.Signature;
-import java.security.SignatureException;
 import java.time.Instant;
+
+import org.securecryptoconfig.SCCException;
+import org.securecryptoconfig.SCCKey;
+import org.securecryptoconfig.SCCKey.KeyType;
+import org.securecryptoconfig.SCCKey.KeyUseCase;
+import org.securecryptoconfig.SCCSignature;
+import org.securecryptoconfig.SecureCryptoConfig;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 
 import COSE.CoseException;
 
+
 public class Client implements Runnable {
 
 	int clientID;
-	KeyPair key;
+	SCCKey key;
 	Server server;
 
-	private Client(int clientID, KeyPair pair, Server server) {
+	private Client(int clientID, SCCKey pair, Server server) {
 		this.clientID = clientID;
 		this.key = pair;
 		this.server = server;
@@ -29,49 +32,31 @@ public class Client implements Runnable {
 		return this.clientID;
 	}
 
-	private KeyPair getKey() {
+	private SCCKey getKey() {
 		return this.key;
 	}
-	
-	private static byte[] sign(String order, KeyPair pair) {
 
-		//TODO: Perform signing of the parameter order with the given KeyPair
-		
-		Signature signature;
+	public static Client generateNewClient(Server server)
+			throws NoSuchAlgorithmException, CoseException, IllegalStateException {
+
+		SCCKey pair = null;
 		try {
-			signature = Signature.getInstance("SHA512withRSA");
-			signature.initSign(pair.getPrivate());
-			signature.update(order.getBytes());
-			return signature.sign();
-		} catch (NoSuchAlgorithmException | SignatureException | InvalidKeyException e) {
+			pair = SCCKey.createKey(KeyUseCase.Signing);
+
+			byte[] publicKey = pair.getPublicKeyBytes();
+
+			int clientID = server.registerClient(new SCCKey(KeyType.Asymmetric, publicKey, null, pair.getAlgorithm()));
+			if (clientID == -1) {
+				throw new IllegalStateException("server does not seem to accept the client registration!");
+			}
+
+			Client c = new Client(clientID, pair, server);
+			return c;
+
+		} catch (SCCException | COSE.CoseException e) {
 			e.printStackTrace();
 			return null;
 		}
-	}
-
-	public static Client generateNewClient(Server server) {
-
-		KeyPair pair = null;
-
-		KeyPairGenerator keyPairGenerator;
-		try {
-			keyPairGenerator = KeyPairGenerator.getInstance("RSA");
-
-			keyPairGenerator.initialize(4096);
-			pair = keyPairGenerator.generateKeyPair();
-
-		} catch (NoSuchAlgorithmException e) {
-
-			e.printStackTrace();
-		}
-		PublicKey publicKey = pair.getPublic();
-		int clientID = server.registerClient(publicKey);
-		if (clientID == -1) {
-			throw new IllegalStateException("server does not seem to accept the client registration!");
-		}
-
-		Client c = new Client(clientID, pair, server);
-		return c;
 	}
 
 	private static String generateOrder() throws NumberFormatException, JsonProcessingException {
@@ -84,9 +69,24 @@ public class Client implements Runnable {
 
 	}
 
+	private static byte[] sign(String order, SCCKey key) throws CoseException {
+		
+		//TODO: Perform signing of the parameter order with the given SCCKey
+		
+		SecureCryptoConfig scc = new SecureCryptoConfig();
+
+		SCCSignature sig;
+		try {
+			sig = scc.sign(key, order.getBytes());
+		} catch (InvalidKeyException | SCCException | COSE.CoseException e) {
+			e.printStackTrace();
+			return null;
+		}
+		return sig.toBytes();
+	}
 
 	private void sendOrder(String order) throws CoseException, JsonProcessingException {
-		KeyPair pair = this.key;
+		SCCKey pair = this.key;
 
 		String signedMessage = SignedMessage.createSignedMessage(this.clientID, order, sign(order, pair));
 
@@ -135,7 +135,7 @@ public class Client implements Runnable {
 				Thread.sleep(5000 + (long) (5000 * Math.random()));
 
 			} catch (InterruptedException | CoseException e) {
-				e.printStackTrace();
+				 e.printStackTrace();
 			} catch (NumberFormatException e) {
 				e.printStackTrace();
 			} catch (JsonProcessingException e) {

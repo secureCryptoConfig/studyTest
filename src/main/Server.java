@@ -1,24 +1,17 @@
 package main;
 
-import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
-import java.security.SecureRandom;
-import java.security.Signature;
-import java.security.SignatureException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.KeyGenerator;
-import javax.crypto.NoSuchPaddingException;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.GCMParameterSpec;
+import org.securecryptoconfig.SCCCiphertext;
+import org.securecryptoconfig.SCCException;
+import org.securecryptoconfig.SCCKey;
+import org.securecryptoconfig.SCCKey.KeyUseCase;
+import org.securecryptoconfig.SecureCryptoConfig;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,10 +19,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import COSE.CoseException;
 
 public class Server extends Thread {
-	static SecretKey masterKey;
-	List<PublicKey> clients = Collections.synchronizedList(new ArrayList<PublicKey>());
+	static SCCKey masterKey;
+	List<SCCKey> clients = Collections.synchronizedList(new ArrayList<SCCKey>());
 
-	public synchronized int registerClient(PublicKey key) {
+	public synchronized int registerClient(SCCKey key) {
 
 		if (clients.indexOf(key) == -1) {
 			clients.add(key);
@@ -38,66 +31,50 @@ public class Server extends Thread {
 		return clients.indexOf(key);
 	}
 
-	public static SecretKey generateKey() {
-		try {
-			KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-			keyGen.init(256);
-			SecretKey key = keyGen.generateKey();
-			return key;
-		} catch (NoSuchAlgorithmException e) {
-			e.printStackTrace();
-			return null;
-		}
-	}
-
-	private boolean checkSignature(int clientID, byte[] order, byte[] sig) throws CoseException {
-		//Public key of client. Public key is used for signature validation
-		PublicKey key = clients.get(clientID);
+	private boolean checkSignature(int clientID, byte[] order, byte[] signature) throws CoseException {
+		//Key of client. This key is used for signature validation
+		SCCKey key = clients.get(clientID);
+		
 		//result of the validation. Default : false
-		boolean resultValidation = false;
+		boolean resultValidation;
 		
 		//TODO Perform validation of the given signature with 
-		//the corresponding public key of the client. Store the result in 'resultValidation'
+		//the corresponding key of the client. Store the result in 'resultValidation'
+		SecureCryptoConfig scc = new SecureCryptoConfig();
 		try {
-			Signature signature = Signature.getInstance("SHA512withRSA");
-
-			signature.initVerify(key);
-			signature.update(order);
-
-			resultValidation = signature.verify(sig);
-		} catch (SignatureException | InvalidKeyException | NoSuchAlgorithmException e) {
+			resultValidation = scc.validateSignature(key, signature);
+			if (resultValidation == true) {
+				encryptOrder(order);
+			}
+		} catch (InvalidKeyException | SCCException e) {
 			e.printStackTrace();
-			return resultValidation;
-		}
-
-		if (resultValidation == true) {
-			encryptOrder(order);
+			return false;
 		}
 
 		return resultValidation;
 
 	}
-
-	private void encryptOrder(byte[] order) {
-
+	
+	public static SCCKey generateKey() {
+		try {
+			return SCCKey.createKey(KeyUseCase.SymmetricEncryption);
+		} catch (SCCException | NoSuchAlgorithmException | CoseException e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
+	private void encryptOrder(byte[] order) throws CoseException {
+		
+			
+		
 		//TODO Perform a symmetric encryption of the given order with the already defined masterKey
 		
+		SecureCryptoConfig scc = new SecureCryptoConfig();
 		try {
-			final byte[] nonce = new byte[32];
-			SecureRandom random = SecureRandom.getInstanceStrong();
-			random.nextBytes(nonce);
-			Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-			GCMParameterSpec spec = new GCMParameterSpec(16 * 8, nonce);
-
-			cipher.init(Cipher.ENCRYPT_MODE, masterKey, spec);
-
-			byte[] byteCipher = cipher.doFinal(order);
-
-		} catch (InvalidKeyException | InvalidAlgorithmParameterException | IllegalBlockSizeException
-				| BadPaddingException | NoSuchAlgorithmException | NoSuchPaddingException e) {
+			SCCCiphertext cipher = scc.encryptSymmetric(masterKey, order);
+		} catch (InvalidKeyException e) {
 			e.printStackTrace();
 		}
-
 	}
 
 	public String acceptMessage(String message) {
