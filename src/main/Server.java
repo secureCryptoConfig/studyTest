@@ -38,7 +38,7 @@ public class Server extends Thread {
 	// Queue to store orders of a client with a specific ID
 	HashedMap<Integer, CircularFifoQueue<SCCCiphertext>> queues = new HashedMap<Integer, CircularFifoQueue<SCCCiphertext>>();
 	// maximum timeout of server used in "run" Method
-	private static int timeoutServer = 5000;
+	private static int sendFrequency = 5000;
 
 	// Key for encrypt orders before storing. Gets initialized with the first run of
 	// AppMain.java
@@ -111,10 +111,9 @@ public class Server extends Thread {
 
 		SecureCryptoConfig scc = new SecureCryptoConfig();
 		try {
-			SCCCiphertext cipher = scc.encryptSymmetric(masterKey, order);
+			SCCCiphertext ciphertext = scc.encryptSymmetric(masterKey, order);
 			// Add cipher in queue of client
-			queues.get(clientId).add(cipher);
-			return true;
+			return queues.get(clientId).add(ciphertext);
 		} catch (InvalidKeyException e) {
 			e.printStackTrace();
 			return false;
@@ -198,6 +197,7 @@ public class Server extends Thread {
 						String decrypted = "";
 						decrypted = decryptOrder(cipher);
 						answer = answer + Message.createServerSendOrdersMessage(decrypted) + "\n";
+						// TODO change to correct Message wrap (right now its only concatenated messages)
 					}
 					return answer;
 				}
@@ -205,6 +205,7 @@ public class Server extends Thread {
 				return Message.createServerResponseMessage(isCorrectMessage);
 			}
 		} catch (JsonProcessingException | CoseException e) {
+			p("Exception " + e.getLocalizedMessage());
 			return new String("{\"Failure\"}");
 		}
 	}
@@ -224,7 +225,7 @@ public class Server extends Thread {
 		while (true) {
 			p("processing orders");
 			try {
-				Thread.sleep((long) (Math.random() * timeoutServer + 1));
+				Thread.sleep((long) (Math.random() * sendFrequency + 1));
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}

@@ -27,7 +27,7 @@ import COSE.CoseException;
 public class Client implements Runnable {
 	
 	//maximum timeout of client used in "run" Method
-	private static int timeoutClient = 5000;
+	private static int sendFrequency = 5000;
 	
 	int clientID;
 	SCCKey key;
@@ -206,9 +206,8 @@ public class Client implements Runnable {
 	public void run() {
 		while (true) {
 			try {
-				Thread.sleep((long)(Math.random() * timeoutClient + 1));
+				Thread.sleep((long)(Math.random() * sendFrequency + 1));
 				sendMessage(generateRandomMessage());
-				Thread.sleep((long)(Math.random() * timeoutClient + 1));
 			} catch (InterruptedException | CoseException e) {
 				 e.printStackTrace();
 			} catch (NumberFormatException e) {
