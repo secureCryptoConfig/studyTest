@@ -72,12 +72,10 @@ public class Server extends Thread {
 	 * @param clientID
 	 * @param order
 	 * @param signature
-	 * @param type
 	 * @return boolean resultValidation: shows if signature was valid
 	 * @throws CoseException
 	 */
-	private boolean checkSignature(int clientID, byte[] order, byte[] signature, MessageType type)
-			throws CoseException {
+	private boolean checkSignature(int clientID, byte[] order, byte[] signature) throws CoseException {
 		// Key of client. This key is used for signature validation
 		SCCKey key = clients.get(clientID);
 
@@ -103,10 +101,10 @@ public class Server extends Thread {
 	 * Method for symmetric encrypting incoming order of client
 	 * 
 	 * @param order
-	 * @return SCCCiphertext
+	 * @return boolean : shows if encryption could be done successfully
 	 * @throws CoseException
 	 */
-	private SCCCiphertext encryptOrder(byte[] order) throws CoseException {
+	private boolean saveOrderEncrypted(byte[] order, int clientId) throws CoseException {
 
 		// TODO Perform a symmetric encryption of the given order with the already
 		// defined masterKey
@@ -114,10 +112,12 @@ public class Server extends Thread {
 		SecureCryptoConfig scc = new SecureCryptoConfig();
 		try {
 			SCCCiphertext cipher = scc.encryptSymmetric(masterKey, order);
-			return cipher;
+			// Add cipher in queue of client
+			queues.get(clientId).add(cipher);
+			return true;
 		} catch (InvalidKeyException e) {
 			e.printStackTrace();
-			return null;
+			return false;
 		}
 	}
 
@@ -175,18 +175,21 @@ public class Server extends Thread {
 
 			byte[] signature = signedMessage.getSignature();
 
-			Message theMessage = mapper.readValue(signedMessage.getContent(), Message.class);
-			type = theMessage.getMessageType();
-
-			isCorrectMessage = checkSignature(clientId, signedMessage.getContent().getBytes(), signature, type);
-
-			p(theMessage.getMessageType().toString());
+			isCorrectMessage = checkSignature(clientId, signedMessage.getContent().getBytes(), signature);
 
 			if (isCorrectMessage == true) {
+				Message theMessage = mapper.readValue(signedMessage.getContent(), Message.class);
+				type = theMessage.getMessageType();
+
+				p(theMessage.getMessageType().toString());
+
 				if (type != MessageType.GetOrders) {
-					SCCCiphertext cipher = encryptOrder(signedMessage.getContent().getBytes());
-					queues.get(clientId).add(cipher);
-					return Message.createServerResponseMessage(isCorrectMessage);
+					boolean encryptionResult = saveOrderEncrypted(signedMessage.getContent().getBytes(), clientId);
+					if (encryptionResult == true) {
+						return Message.createServerResponseMessage(isCorrectMessage);
+					} else {
+						return new String("{\"Failure during encryption\"}");
+					}
 				} else {
 					CircularFifoQueue<SCCCiphertext> q = queues.get(clientId);
 					String answer = "";
