@@ -165,6 +165,43 @@ public class Server extends Thread {
 	}
 
 	/**
+	 * Message get processed depending on its MessageType and validation result.
+	 * @param type BUY/SELL stock or GETORDERS
+	 * @param clientId
+	 * @param isCorrectMessage shows if message signature was correct
+	 * @param signedMessage message sent from the client to server
+	 * @return
+	 * @throws CoseException
+	 * @throws JsonProcessingException
+	 */
+	private  String processOrder(MessageType type, int clientId, boolean isCorrectMessage, SignedMessage signedMessage ) throws CoseException, JsonProcessingException
+	{
+		switch (type) {
+		case GetOrders:
+			CircularFifoQueue<byte[]> q = queues.get(clientId);
+			String answer = "";
+			for (int i = 0; i < q.size(); i++) {
+				byte[] encryptedOrder = q.get(i);
+				String decrypted = "";
+				decrypted = decryptOrder(encryptedOrder);
+				answer = answer + Message.createServerSendOrdersMessage(decrypted) + "\n";
+				// TODO change to correct Message wrap (right now its only concatenated
+				// messages)
+			}
+			return answer;
+		case BuyStock:
+		case SellStock:
+			boolean encryptionResult = saveOrderEncrypted(signedMessage.getContent().getBytes(), clientId);
+			if (encryptionResult == true) {
+				return Message.createServerResponseMessage(isCorrectMessage);
+			} else {
+				return new String("{\"Failure during encryption\"}");
+			}
+		default:
+			return new String("{\"Failure\"}");
+		}
+	}
+	/**
 	 * Processes incoming orders. Values of messages are read out and validation
 	 * process gets started. Server sends back a response to client showing if
 	 * incoming order signature could be validated
@@ -191,30 +228,8 @@ public class Server extends Thread {
 				type = theMessage.getMessageType();
 
 				p(theMessage.getMessageType().toString());
-				switch (type) {
-				case GetOrders:
-					CircularFifoQueue<byte[]> q = queues.get(clientId);
-					String answer = "";
-					for (int i = 0; i < q.size(); i++) {
-						byte[] encryptedOrder = q.get(i);
-						String decrypted = "";
-						decrypted = decryptOrder(encryptedOrder);
-						answer = answer + Message.createServerSendOrdersMessage(decrypted) + "\n";
-						// TODO change to correct Message wrap (right now its only concatenated
-						// messages)
-					}
-					return answer;
-				case BuyStock:
-				case SellStock:
-					boolean encryptionResult = saveOrderEncrypted(signedMessage.getContent().getBytes(), clientId);
-					if (encryptionResult == true) {
-						return Message.createServerResponseMessage(isCorrectMessage);
-					} else {
-						return new String("{\"Failure during encryption\"}");
-					}
-				default:
-					return new String("{\"Failure\"}");
-				}
+				
+				return processOrder(type, clientId, isCorrectMessage, signedMessage);
 
 			} else {
 				return Message.createServerResponseMessage(isCorrectMessage);
