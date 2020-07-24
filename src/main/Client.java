@@ -30,18 +30,21 @@ public class Client implements Runnable {
 	private static int sendFrequency = 5000;
 	
 	int clientID;
-	SCCKey key;
+	byte[] publicKey;
+	byte[] privateKey;
 	Server server;
 
 	/**
 	 * Constructor of client
 	 * @param clientID
-	 * @param pair : KeyPair
+	 * @param publicKey
+	 * @param privateKey
 	 * @param server
 	 */
-	private Client(int clientID, SCCKey key, Server server) {
+	private Client(int clientID, byte[] publicKey, byte[] privateKey, Server server) {
 		this.clientID = clientID;
-		this.key = key;
+		this.publicKey = publicKey;
+		this.privateKey = privateKey;
 		this.server = server;
 	}
 
@@ -53,23 +56,18 @@ public class Client implements Runnable {
 		return this.clientID;
 	}
 
-	/**
-	 * Return key of client
-	 * @return SCCKey
-	 */
-	public SCCKey getKey() {
-		return this.key;
-	}
 	
 	/**
 	 * Methods that signs the client order with the corresponding key
 	 * @param order
-	 * @param key
+	 * @param publicKey
+	 * @param privateKey
 	 * @return byte[] : signature
 	 * @throws CoseException
 	 */
-	private static byte[] signMessage(String order, SCCKey key) throws CoseException {
+	private static byte[] signMessage(String order, byte[] publicKey, byte[] privateKey) throws CoseException {
 		
+		SCCKey key = new SCCKey(KeyType.Asymmetric, publicKey, privateKey, "EC");
 		//TODO: Perform signing of the parameter order with the given SCCKey
 		
 		SecureCryptoConfig scc = new SecureCryptoConfig();
@@ -110,7 +108,7 @@ public class Client implements Runnable {
 				throw new IllegalStateException("server does not seem to accept the client registration!");
 			}
 
-			Client c = new Client(clientID, key, server);
+			Client c = new Client(clientID, key.getPublicKeyBytes(), key.getPrivateKeyBytes(), server);
 			return c;
 
 		} catch (SCCException | COSE.CoseException e) {
@@ -146,9 +144,8 @@ public class Client implements Runnable {
 	 * @throws JsonProcessingException
 	 */
 	private void sendMessage(String order) throws CoseException, JsonProcessingException {
-		SCCKey pair = this.key;
-
-		String signedMessage = SignedMessage.createSignedMessage(this.clientID, order, signMessage(order, pair));
+		
+		String signedMessage = SignedMessage.createSignedMessage(this.clientID, order, signMessage(order, publicKey, privateKey));
 
 		p("sending to server: " + signedMessage);
 		String result = server.acceptMessage(signedMessage);
