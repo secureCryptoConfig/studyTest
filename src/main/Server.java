@@ -100,26 +100,28 @@ public class Server extends Thread {
 
 	/**
 	 * Method for symmetric encrypting incoming order of client
+	 * 
 	 * @param clientId
-	 * @param order order send by client
+	 * @param order    order send by client
 	 * @return boolean : shows if encryption could be done successfully
 	 * @throws CoseException
 	 */
 	private boolean saveOrderEncrypted(byte[] order, int clientId) throws CoseException {
 
-		byte[] ciphertext;
+		byte[] encryptedOrder;
 		SCCKey key = new SCCKey(KeyType.Symmetric, masterKey, "AES");
-		
+
 		// TODO Perform a symmetric encryption of the given order with the already
-		// defined "key". Store the chiphertext in the following variable "ciphertext"
-		
+		// defined "key". Store the chiphertext in the already defined variable
+		// "encryptedOrder"
+
 		SecureCryptoConfig scc = new SecureCryptoConfig();
 		try {
 			SCCCiphertext c = scc.encryptSymmetric(key, order);
-			ciphertext = c.toBytes();
-			
-			// Add cipher in queue of client
-			return queues.get(clientId).add(ciphertext);
+			encryptedOrder = c.toBytes();
+
+			// Add encrypted order in queue of client
+			return queues.get(clientId).add(encryptedOrder);
 		} catch (InvalidKeyException e) {
 			e.printStackTrace();
 			return false;
@@ -130,18 +132,17 @@ public class Server extends Thread {
 	 * Method for decrypting stored encrypted order if clients requests his already
 	 * send orders
 	 * 
-	 * @param cipher ciphertext to decrypt in byte[]
+	 * @param encryptedOrder encrypted order
 	 * @return String : all previously send orders
 	 * @throws CoseException
 	 */
-	private String decryptOrder(byte[] cipher) throws CoseException {
+	private String decryptOrder(byte[] encryptedOrder) throws CoseException {
 		SCCKey key = new SCCKey(KeyType.Symmetric, masterKey, "AES");
-		
-		
+
 		SecureCryptoConfig scc = new SecureCryptoConfig();
 		try {
-			SCCCiphertext ciphertext = new SCCCiphertext(cipher);
-			PlaintextContainer plaintext = scc.decryptSymmetric(key, ciphertext);
+			SCCCiphertext c = new SCCCiphertext(encryptedOrder);
+			PlaintextContainer plaintext = scc.decryptSymmetric(key, c);
 			return plaintext.toString(StandardCharsets.UTF_8);
 		} catch (InvalidKeyException e) {
 			e.printStackTrace();
@@ -190,26 +191,31 @@ public class Server extends Thread {
 				type = theMessage.getMessageType();
 
 				p(theMessage.getMessageType().toString());
-
-				if (type != MessageType.GetOrders) {
+				switch (type) {
+				case GetOrders:
+					CircularFifoQueue<byte[]> q = queues.get(clientId);
+					String answer = "";
+					for (int i = 0; i < q.size(); i++) {
+						byte[] encryptedOrder = q.get(i);
+						String decrypted = "";
+						decrypted = decryptOrder(encryptedOrder);
+						answer = answer + Message.createServerSendOrdersMessage(decrypted) + "\n";
+						// TODO change to correct Message wrap (right now its only concatenated
+						// messages)
+					}
+					return answer;
+				case BuyStock:
+				case SellStock:
 					boolean encryptionResult = saveOrderEncrypted(signedMessage.getContent().getBytes(), clientId);
 					if (encryptionResult == true) {
 						return Message.createServerResponseMessage(isCorrectMessage);
 					} else {
 						return new String("{\"Failure during encryption\"}");
 					}
-				} else {
-					CircularFifoQueue<byte[]> q = queues.get(clientId);
-					String answer = "";
-					for (int i = 0; i < q.size(); i++) {
-						byte[] cipher = q.get(i);
-						String decrypted = "";
-						decrypted = decryptOrder(cipher);
-						answer = answer + Message.createServerSendOrdersMessage(decrypted) + "\n";
-						// TODO change to correct Message wrap (right now its only concatenated messages)
-					}
-					return answer;
+				default:
+					return new String("{\"Failure\"}");
 				}
+
 			} else {
 				return Message.createServerResponseMessage(isCorrectMessage);
 			}
