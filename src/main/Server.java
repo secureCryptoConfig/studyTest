@@ -14,6 +14,7 @@ import org.securecryptoconfig.PlaintextContainer;
 import org.securecryptoconfig.SCCCiphertext;
 import org.securecryptoconfig.SCCException;
 import org.securecryptoconfig.SCCKey;
+import org.securecryptoconfig.SCCKey.KeyType;
 import org.securecryptoconfig.SCCKey.KeyUseCase;
 import org.securecryptoconfig.SecureCryptoConfig;
 
@@ -36,24 +37,24 @@ import main.Message.MessageType;
  */
 public class Server extends Thread {
 	// Queue to store orders of a client with a specific ID
-	HashedMap<Integer, CircularFifoQueue<SCCCiphertext>> queues = new HashedMap<Integer, CircularFifoQueue<SCCCiphertext>>();
+	HashedMap<Integer, CircularFifoQueue<byte[]>> queues = new HashedMap<Integer, CircularFifoQueue<byte[]>>();
 	// maximum timeout of server used in "run" Method
 	private static int sendFrequency = 5000;
 
 	// Key for encrypt orders before storing. Gets initialized with the first run of
 	// AppMain.java
-	static SCCKey masterKey;
+	static byte[] masterKey;
 
 	// all registered clients with their Keys
-	List<SCCKey> clients = Collections.synchronizedList(new ArrayList<SCCKey>());
+	List<byte[]> clients = Collections.synchronizedList(new ArrayList<byte[]>());
 
 	/**
 	 * Server retrieves key for later signature validation from client
 	 * 
-	 * @param key
+	 * @param key publicKey of client
 	 * @return int : client ID
 	 */
-	public synchronized int registerClient(SCCKey key) {
+	public synchronized int registerClient(byte[] key) {
 
 		if (clients.indexOf(key) == -1) {
 			clients.add(key);
@@ -62,7 +63,7 @@ public class Server extends Thread {
 		int id = clients.indexOf(key);
 
 		// new Queue of the client to store his later incoming orders
-		queues.put(id, new CircularFifoQueue<SCCCiphertext>(100));
+		queues.put(id, new CircularFifoQueue<byte[]>(100));
 		return id;
 	}
 
@@ -76,14 +77,14 @@ public class Server extends Thread {
 	 * @throws CoseException
 	 */
 	private boolean checkSignature(int clientID, byte[] order, byte[] signature) throws CoseException {
+		byte[] publicKey = clients.get(clientID);
 		// Key of client. This key is used for signature validation
-		SCCKey key = clients.get(clientID);
-
-		// result of the validation. Default : false
+		SCCKey key = new SCCKey(KeyType.Asymmetric, publicKey, null, "EC");
+		// store result of the validation. Default : false
 		boolean resultValidation = false;
 
 		// TODO Perform validation of the given signature with
-		// the corresponding key of the client. Store the result in 'resultValidation'
+		// the given key of the client. Store the result in 'resultValidation'
 		SecureCryptoConfig scc = new SecureCryptoConfig();
 
 		try {
@@ -99,19 +100,24 @@ public class Server extends Thread {
 
 	/**
 	 * Method for symmetric encrypting incoming order of client
-	 * 
-	 * @param order
+	 * @param clientId
+	 * @param order order send by client
 	 * @return boolean : shows if encryption could be done successfully
 	 * @throws CoseException
 	 */
 	private boolean saveOrderEncrypted(byte[] order, int clientId) throws CoseException {
 
+		byte[] ciphertext;
+		SCCKey key = new SCCKey(KeyType.Symmetric, masterKey, "AES");
+		
 		// TODO Perform a symmetric encryption of the given order with the already
-		// defined masterKey
-
+		// defined "key". Store the chiphertext in the following variable "ciphertext"
+		
 		SecureCryptoConfig scc = new SecureCryptoConfig();
 		try {
-			SCCCiphertext ciphertext = scc.encryptSymmetric(masterKey, order);
+			SCCCiphertext c = scc.encryptSymmetric(key, order);
+			ciphertext = c.toBytes();
+			
 			// Add cipher in queue of client
 			return queues.get(clientId).add(ciphertext);
 		} catch (InvalidKeyException e) {
@@ -124,15 +130,18 @@ public class Server extends Thread {
 	 * Method for decrypting stored encrypted order if clients requests his already
 	 * send orders
 	 * 
-	 * @param cipher
+	 * @param cipher ciphertext to decrypt in byte[]
 	 * @return String : all previously send orders
 	 * @throws CoseException
 	 */
-	private String decryptOrder(SCCCiphertext cipher) throws CoseException {
-
+	private String decryptOrder(byte[] cipher) throws CoseException {
+		SCCKey key = new SCCKey(KeyType.Symmetric, masterKey, "AES");
+		
+		
 		SecureCryptoConfig scc = new SecureCryptoConfig();
 		try {
-			PlaintextContainer plaintext = scc.decryptSymmetric(masterKey, cipher);
+			SCCCiphertext ciphertext = new SCCCiphertext(cipher);
+			PlaintextContainer plaintext = scc.decryptSymmetric(key, ciphertext);
 			return plaintext.toString(StandardCharsets.UTF_8);
 		} catch (InvalidKeyException e) {
 			e.printStackTrace();
@@ -143,11 +152,11 @@ public class Server extends Thread {
 	/**
 	 * Generation of key for later encryption of orders
 	 * 
-	 * @return SCCKey
+	 * @return byte[] key bytes
 	 */
-	public static SCCKey generateKey() {
+	public static byte[] generateKey() {
 		try {
-			return SCCKey.createKey(KeyUseCase.SymmetricEncryption);
+			return SCCKey.createKey(KeyUseCase.SymmetricEncryption).toBytes();
 		} catch (SCCException | NoSuchAlgorithmException | CoseException e) {
 			e.printStackTrace();
 			return null;
@@ -159,7 +168,7 @@ public class Server extends Thread {
 	 * process gets started. Server sends back a response to client showing if
 	 * incoming order signature could be validated
 	 * 
-	 * @param message
+	 * @param message incoming from interaction of client with server
 	 * @return
 	 */
 	public String acceptMessage(String message) {
@@ -190,10 +199,10 @@ public class Server extends Thread {
 						return new String("{\"Failure during encryption\"}");
 					}
 				} else {
-					CircularFifoQueue<SCCCiphertext> q = queues.get(clientId);
+					CircularFifoQueue<byte[]> q = queues.get(clientId);
 					String answer = "";
 					for (int i = 0; i < q.size(); i++) {
-						SCCCiphertext cipher = q.get(i);
+						byte[] cipher = q.get(i);
 						String decrypted = "";
 						decrypted = decryptOrder(cipher);
 						answer = answer + Message.createServerSendOrdersMessage(decrypted) + "\n";

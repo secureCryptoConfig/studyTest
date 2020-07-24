@@ -99,18 +99,18 @@ public class Client implements Runnable {
 	public static Client generateNewClient(Server server)
 			throws NoSuchAlgorithmException, CoseException, IllegalStateException {
 
-		SCCKey pair = null;
+		SCCKey key = null;
 		try {
-			pair = SCCKey.createKey(KeyUseCase.Signing);
+			key = SCCKey.createKey(KeyUseCase.Signing);
 
-			byte[] publicKey = pair.getPublicKeyBytes();
+			byte[] publicKey = key.getPublicKeyBytes();
 
-			int clientID = server.registerClient(new SCCKey(KeyType.Asymmetric, publicKey, null, pair.getAlgorithm()));
+			int clientID = server.registerClient(publicKey);
 			if (clientID == -1) {
 				throw new IllegalStateException("server does not seem to accept the client registration!");
 			}
 
-			Client c = new Client(clientID, pair, server);
+			Client c = new Client(clientID, key, server);
 			return c;
 
 		} catch (SCCException | COSE.CoseException e) {
