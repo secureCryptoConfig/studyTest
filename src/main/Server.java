@@ -133,20 +133,25 @@ public class Server extends Thread {
 	 * send orders
 	 * 
 	 * @param encryptedOrder encrypted order
-	 * @return String : all previously send orders
+	 * @return String : plaintext of decryptet order
 	 * @throws CoseException
 	 */
 	private String decryptOrder(byte[] encryptedOrder) throws CoseException {
 		SCCKey key = new SCCKey(KeyType.Symmetric, masterKey, "AES");
-
+		String decryptedOrder = null;
+		
+		// TODO Perform a symmetric decryption of the given encryptedOrder with the already
+		// defined "key". Store the plaintext in the already defined String variable
+		// "decryptedOrder"
 		SecureCryptoConfig scc = new SecureCryptoConfig();
 		try {
 			SCCCiphertext c = new SCCCiphertext(encryptedOrder);
 			PlaintextContainer plaintext = scc.decryptSymmetric(key, c);
-			return plaintext.toString(StandardCharsets.UTF_8);
+			decryptedOrder = plaintext.toString(StandardCharsets.UTF_8);
+			return decryptedOrder;
 		} catch (InvalidKeyException e) {
 			e.printStackTrace();
-			return null;
+			return decryptedOrder;
 		}
 	}
 
@@ -174,7 +179,7 @@ public class Server extends Thread {
 	 * @throws CoseException
 	 * @throws JsonProcessingException
 	 */
-	private  String processOrder(MessageType type, int clientId, boolean isCorrectMessage, SignedMessage signedMessage ) throws CoseException, JsonProcessingException
+	private  String parseMessage(MessageType type, int clientId, boolean isCorrectMessage, SignedMessage signedMessage ) throws CoseException, JsonProcessingException
 	{
 		switch (type) {
 		case GetOrders:
@@ -229,7 +234,7 @@ public class Server extends Thread {
 
 				p(theMessage.getMessageType().toString());
 				
-				return processOrder(type, clientId, isCorrectMessage, signedMessage);
+				return parseMessage(type, clientId, isCorrectMessage, signedMessage);
 
 			} else {
 				return Message.createServerResponseMessage(isCorrectMessage);
