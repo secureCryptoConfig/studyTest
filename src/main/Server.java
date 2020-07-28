@@ -83,16 +83,10 @@ public class Server extends Thread {
 		// store result of the validation. Default : false
 		boolean resultValidation = false;
 
-		// TODO Perform validation of the given signature with
-		// the given key of the client. Store the result in 'resultValidation'
-		SecureCryptoConfig scc = new SecureCryptoConfig();
-
-		try {
-			resultValidation = scc.validateSignature(key, signature);
-		} catch (InvalidKeyException | SCCException e) {
-			e.printStackTrace();
-			return resultValidation;
-		}
+		// TODO Perform validation of the given "signature" with
+		// the already defined "key" of the client. 
+		//Return/Store the result in 'resultValidation' that shows if validation was (not) successful
+		
 
 		return resultValidation;
 
@@ -108,24 +102,17 @@ public class Server extends Thread {
 	 */
 	private boolean saveOrderEncrypted(byte[] order, int clientId) throws CoseException {
 
-		byte[] encryptedOrder;
+		byte[] encryptedOrder = null;
 		SCCKey key = new SCCKey(KeyType.Symmetric, masterKey, "AES");
 
-		// TODO Perform a symmetric encryption of the given order with the already
+		// TODO Perform a symmetric encryption of the given "order" with the already
 		// defined "key". Store the chiphertext in the already defined variable
 		// "encryptedOrder"
 
-		SecureCryptoConfig scc = new SecureCryptoConfig();
-		try {
-			SCCCiphertext c = scc.encryptSymmetric(key, order);
-			encryptedOrder = c.toBytes();
-
-			// Add encrypted order in queue of client
-			return queues.get(clientId).add(encryptedOrder);
-		} catch (InvalidKeyException e) {
-			e.printStackTrace();
-			return false;
-		}
+		
+		// Add encrypted order in queue of client
+		return queues.get(clientId).add(encryptedOrder);
+		
 	}
 
 	/**
@@ -140,19 +127,11 @@ public class Server extends Thread {
 		SCCKey key = new SCCKey(KeyType.Symmetric, masterKey, "AES");
 		String decryptedOrder = null;
 		
-		// TODO Perform a symmetric decryption of the given encryptedOrder with the already
-		// defined "key". Store the plaintext in the already defined String variable
+		// TODO Perform a symmetric decryption of the given "encryptedOrder" with the already
+		// defined "key". Store/Return the plaintext in the already defined String variable
 		// "decryptedOrder"
-		SecureCryptoConfig scc = new SecureCryptoConfig();
-		try {
-			SCCCiphertext c = new SCCCiphertext(encryptedOrder);
-			PlaintextContainer plaintext = scc.decryptSymmetric(key, c);
-			decryptedOrder = plaintext.toString(StandardCharsets.UTF_8);
-			return decryptedOrder;
-		} catch (InvalidKeyException e) {
-			e.printStackTrace();
-			return decryptedOrder;
-		}
+		
+		return null;
 	}
 
 	/**
@@ -190,8 +169,6 @@ public class Server extends Thread {
 				String decrypted = "";
 				decrypted = decryptOrder(encryptedOrder);
 				answer = answer + Message.createServerSendOrdersMessage(decrypted) + "\n";
-				// TODO change to correct Message wrap (right now its only concatenated
-				// messages)
 			}
 			return answer;
 		case BuyStock:

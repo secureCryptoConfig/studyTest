@@ -68,18 +68,10 @@ public class Client implements Runnable {
 	private static byte[] signMessage(String order, byte[] publicKey, byte[] privateKey) throws CoseException {
 		
 		SCCKey key = new SCCKey(KeyType.Asymmetric, publicKey, privateKey, "EC");
-		//TODO: Perform signing of the parameter order with the given SCCKey
 		
-		SecureCryptoConfig scc = new SecureCryptoConfig();
-
-		SCCSignature sig;
-		try {
-			sig = scc.sign(key, order.getBytes());
-		} catch (InvalidKeyException | SCCException | COSE.CoseException e) {
-			e.printStackTrace();
-			return null;
-		}
-		return sig.toBytes();
+		//TODO: Perform signing of the parameter "order" with already defined key
+		
+		return null;
 	}
 
 	/**
